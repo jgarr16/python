@@ -20,33 +20,59 @@ appts.Sort("[Start]")
 appts.IncludeRecurrences = "True"
 
 
-# Step 2, Block 1 : filter to the range : from = (today), to = (today + 1)
-begin = date.today().strftime("%m/%d/%Y")
-end = date.today() + datetime.timedelta(days=8)
+# Step 2, Block 1 : filter to the range : from = (today), to = (today + 24 hours)
+begin = datetime.datetime(2021,12,13)
+begin = begin - datetime.timedelta(0,180)
+end = begin + datetime.timedelta(2,0)
 end = end.strftime("%m/%d/%Y")
-appts = appts.Restrict("[Start] >= '" +begin+ "' AND [END] <= '" +end+ "'")
+begin = begin.strftime("%m/%d/%Y")
+print("begin: "+str(begin)+"\nend: "+str(end))
+appts = appts.Restrict("[Start] >= '" +str(begin)+ "' AND [END] <= '" +str(end)+ "'")
 
 # Step 3, Block 1 : create a list of excluded meeting subjects
-excludedSubjects=('Exercise',)
+excludedSubjects=('Exercise','Project Tag','Weekly OCIO Enterprise Budget Tag-Up',)
+swapSubjects={
+    "7:45 a.m. Daily Code I Services Status Tag":"IT Ops",
+    "Weekly EC Tag-up":"EC",
+    "New CIO Staff Meeting Series":"CSM",
+    "John & Bryan Tag Up":"Bryan",
+    "ACMC":"ACMC",
+    "Code I Sr. Mgmt.":"Sr. Ldrs.",
+    "OCIO MAP Implementation Weekly Meeting":"MAP",
+    "Code IO Tag-up":"Code IO",
+    "OCIO Future of Work Subteam":"OCIO FoW",
+    "Code I Chiefs - Tag-up":"Chiefs",
+    "Code I ITPMB Meeting":"ITPMB",
+    "Mission Enabling Bi-weekly Tag":"ME Tag"
+    }
 
 # Step 3, Block 2 : populate dictionary of meetings
 apptDict = {}
 item = 0
 for indx, a in enumerate(appts):
     subject = str(a.Subject)
-    if subject in (excludedSubjects):
+    if subject.startswith(excludedSubjects):
         continue
+    elif subject in (swapSubjects):
+        organizer = str(a.Organizer)
+        meetingDate = str(a.Start)
+        date = parse(meetingDate).date()
+        subject = swapSubjects[subject]  # change the subject to a preferred, condensed version
+        duration = str(a.Duration)
+        apptDict[item] = {"Duration":duration, "Organizer":organizer, "Subject":subject, "Date":date.strftime("%m/%d/%Y"), "obsidianDate":date.strftime("%Y-%m-%dT%H:%M")}
+        item = item + 1
+        # continue
     else:
         organizer = str(a.Organizer)
         meetingDate = str(a.Start)
         date = parse(meetingDate).date()
         subject = str(a.Subject)
         duration = str(a.Duration)
-        apptDict[item] = {"Duration":duration, "Organizer":organizer, "Subject":subject, "Date":date.strftime("%m/%d/%Y")}
+        apptDict[item] = {"Duration":duration, "Organizer":organizer, "Subject":subject, "Date":date.strftime("%m/%d/%Y"), "obsidianDate":date.strftime("%Y-%m-%dT%H:%M")}
         item = item + 1
 
 # Step 4, Block 1 : convert discretionary to datafram and group by Date
-aptDf = pd.DataFrame.from_dict(apptDict, orient='index', columns = ['Date','Subject','Duration','Organizer'])
+aptDf = pd.DataFrame.from_dict(apptDict, orient='index', columns = ['Date','obsidianDate','Subject'])
 aptDf = aptDf.set_index('Date')
 aptDf['Meetings'] = aptDf[['Subject']].agg(' ||| '.join, axis=1)
 grouped_aptDf = aptDf.groupby('Date').agg({'Meetings':', '.join})
@@ -56,6 +82,5 @@ grouped_aptDf.sort_index()
 # Step 5, Block 1 : add timestamp to filename and save
 filename = date.today().strftime("%Y%m%d") + '_meeting_list.csv'
 grouped_aptDf.to_csv(filename, index=True, header=True)
-
 
 # print(len(appts)) -- for status checking...
