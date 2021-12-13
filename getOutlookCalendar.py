@@ -58,4 +58,4 @@ filename = date.today().strftime("%Y%m%d") + '_meeting_list.csv'
 grouped_aptDf.to_csv(filename, index=True, header=True)
 
 
-print(len(appts))
+# print(len(appts)) -- for status checking...
